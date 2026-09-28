@@ -102,6 +102,8 @@ export default function Home() {
       const res = await fetch("/api/predict", { method: "POST", body });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 429) throw new Error("Too many predictions. Wait a minute and try again.");
+        if (res.status === 401) throw new Error("The server refused this request. The site's API key is misconfigured.");
         const d = data.detail;
         throw new Error(typeof d === "string" ? d : "The server rejected this input. Check every field.");
       }
