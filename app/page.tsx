@@ -35,6 +35,22 @@ function Gauge({ mult }: { mult: number }) {
   );
 }
 
+// Shrinks big images in the browser: longest side 1280px, JPEG.
+async function shrink(f: File): Promise<File> {
+  const bmp = await createImageBitmap(f);
+  const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#fff"; // PNGs with transparency would otherwise turn black
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9));
+  if (!blob) throw new Error("encode failed");
+  return new File([blob], f.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -55,12 +71,15 @@ export default function Home() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  function pick(f: File | undefined) {
+  async function pick(f: File | undefined) {
     setError(null);
     if (!f) return;
     if (!f.type.startsWith("image/")) return setError("Choose an image file (JPG, PNG or WebP).");
-    if (f.size > MAX_BYTES) return setError("Thumbnail is over 3 MB. Export a smaller JPG.");
-    setFile(f);
+    try {
+      setFile(f.size > MAX_BYTES ? await shrink(f) : f);
+    } catch {
+      setError("Couldn't read that image. Try a JPG or PNG.");
+    }
   }
 
   async function submit(e: React.FormEvent) {
