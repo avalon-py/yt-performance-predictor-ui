@@ -12,6 +12,7 @@ export async function POST(req: Request) {
     const res = await fetch(`${base}/predict`, {
       method: "POST",
       body: form,
+      headers: { "x-api-key": process.env.PREDICT_KEY ?? "" },
       signal: AbortSignal.timeout(55_000),
     });
     return new Response(await res.text(), {
